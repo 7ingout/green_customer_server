@@ -26,7 +26,7 @@ app.use(express.json());
 app.use(cors());
 
 app.get('/customers', async (req, res)=> {
-    connection.connect();
+    // connection.connect();
     connection.query(
         "select * from customers_table",
         (err, rows, fields)=> {
@@ -35,8 +35,36 @@ app.get('/customers', async (req, res)=> {
             console.log(fields);
         }
     )
-    connection.end();
+    // connection.end();
 })
+
+app.get('/detailview/:no', async (req, res)=> {
+    const params = req.params;
+    const { no } = params;
+    connection.query(
+    `select * from customers_table where no=${no}`,
+        (err, rows, fields)=> {
+            res.send(rows[0])
+        }
+    )
+})
+
+app.post("/customers", (req, res)=>{
+    const body = req.body;
+    const { c_name, c_phone, c_birth, c_gender, c_add, c_adddetail} = body;
+    if(!c_name || !c_phone || !c_birth || !c_gender || !c_add || !c_adddetail) {
+        res.send("모든 필드를 입력해주세요");
+    } else {
+        connection.query(
+            `insert into customers_table (name, phone, birth, gender, add1, add2) values ('${c_name}', '${c_phone}', '${c_birth}', '${c_gender}', '${c_add}', '${c_adddetail}')`,
+            (err, rows,fields) => {
+                res.send("등록되셨습니다.")
+            }
+        )
+       
+    }
+})
+
 
 // 서버실행
 app.listen(port, () => {
