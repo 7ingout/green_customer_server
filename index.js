@@ -4,6 +4,8 @@ const app = express();
 const port = 3001;
 const mysql = require("mysql");
 const fs = require("fs")
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 const dbinfo = fs.readFileSync('./database.json');
 // 받아온 json 데이터를 객체형태로 변경 JSON.parse
 const conf = JSON.parse(dbinfo)
@@ -118,6 +120,60 @@ app.put('/edit/:no', async (req, res)=> {
     `update customers_table set name='${c_name}', phone='${c_phone}', birth='${c_birth}', gender='${c_gender}', add1='${c_add}', add2='${c_adddetail}' where no=${params.no}`,
         (err, rows, fields)=> {
             res.send(rows)
+        }
+    )
+})
+// 회원가입 요청
+app.post("/join", async (req,res)=> {
+    // green1234
+    let myPlaintextPass = req.body.userpass;
+    let myPass = "";
+    if(myPlaintextPass != '' && myPlaintextPass != undefined) {
+        bcrypt.genSalt(saltRounds, function(err, salt) {
+            bcrypt.hash(myPlaintextPass, salt, function(err, hash) {
+                // Store hash in your password DB.
+                myPass = hash;
+                console.log(myPass);
+                // 쿼리 작성
+                const { username, userphone, userorg, usermail } = req.body;
+                // connection.query 인자 첫번째: 쿼리문, 두번째: 쿼리문에 들어갈 값, 세번째: 처리 되면 하는 애
+                connection.query("insert into customer_members(username, userpass, userphone, userorg, usermail, regdate) values(?,?,?,?,?,DATE_FORMAT(now(),'%Y-%m-%d'))",
+                    [username, myPass, userphone, userorg, usermail],
+                    (err, result, fields) => {
+                        console.log(result)
+                        console.log(err)
+                        res.send("등록되었습니다.")
+                    }
+                )
+            });
+        });
+    }
+})
+
+// 로그인 요청
+app.post('/login', async (req, res)=> {
+    // usermail 값에 일치하는 데이터가 있는지 select 문
+    // userpass 암호화해서 쿼리 결과의 패스워드랑 일치하는지를 체크
+    const {usermail, userpass} = req.body;
+    connection.query(`select * from customer_members where usermail = '${usermail}'`,
+        (err, rows, fileds)=>{
+            if(rows != undefined) {
+                if(rows[0] == undefined) {
+                    res.send(null)
+                } else {
+                    // Load hash from your password DB.
+                    bcrypt.compare(userpass, rows[0].userpass, function(err, result) {
+                        // result == true
+                        if(result == true) {
+                            res.send(rows[0])
+                        } else {
+                            res.send('실패')
+                        }
+                    });
+                }
+            } else {
+                res.send('실패')
+            }
         }
     )
 })
