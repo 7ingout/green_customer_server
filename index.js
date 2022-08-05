@@ -7,6 +7,8 @@ const fs = require("fs")
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const dbinfo = fs.readFileSync('./database.json');
+const multer = require("multer")
+
 // 받아온 json 데이터를 객체형태로 변경 JSON.parse
 const conf = JSON.parse(dbinfo)
 
@@ -15,7 +17,6 @@ const conf = JSON.parse(dbinfo)
 // connection.end()연결종료
 // connection.query('쿼리문', callback함수)
 // callback(error, result, result의 field정보)
-
 
 const connection = mysql.createConnection({
     host: conf.host,
@@ -26,6 +27,28 @@ const connection = mysql.createConnection({
 })
 app.use(express.json());
 app.use(cors());
+app.use("/upload", express.static("upload"));
+
+// 파일 요청시 파일이 저장될 경로와 파일이름(요청된 원본파일이름) 지정
+const storage = multer.diskStorage({
+    destination:"./upload",
+    filename: function(req, file, cb) {
+        cb(null, file.originalname); // 원본 파일 이름과 똑같이 저장하겠다
+    }
+})
+
+// 업로드 객체
+const upload = multer({
+    storage: storage,
+    limits: { fieldSize: 1000000 }
+})
+
+// upload 경로로 post 요청이 왔을 경우 응답
+app.post("/upload", upload.single("img"), function(req, res, next){
+    res.send({
+        imageUrl: req.file.filename
+    })
+})
 
 // app.get("경로", 함수)
 // connection.query("쿼리문", 함수)
@@ -36,7 +59,7 @@ app.get('/customers', async (req, res)=> {
         (err, rows, fields)=> {
             // res.send("고객정보입니다.")
             res.send(rows)
-            console.log(fields);
+            // console.log(fields);
         }
     )
     // connection.end();
@@ -79,7 +102,7 @@ app.get('/detailview/:no', async (req, res)=> {
 // insert into customers_table(name, phone, birth, gender, add1, add2)
 // values(?, ?, ?, ?, ?, ?)
 app.post("/addCustomer", async (req, res)=>{
-    console.log(req)
+    // console.log(req)
     // const body = req.body;
     const { c_name, c_phone, c_birth, c_gender, c_add, c_adddetail} = req.body;
     connection.query(
@@ -115,7 +138,7 @@ app.put('/edit/:no', async (req, res)=> {
     const params = req.params;
     const { c_name, c_phone, c_birth, c_gender, c_add, c_adddetail} = req.body;
     console.log('수정');
-    console.log(req.body);
+    // console.log(req.body);
     connection.query(
     `update customers_table set name='${c_name}', phone='${c_phone}', birth='${c_birth}', gender='${c_gender}', add1='${c_add}', add2='${c_adddetail}' where no=${params.no}`,
         (err, rows, fields)=> {
@@ -176,6 +199,25 @@ app.post('/login', async (req, res)=> {
             }
         }
     )
+})
+
+// gallery post 요청
+app.post('/gallery', async(req,res) => {
+    const { usermail, title, imgurl, desc} = req.body;
+    connection.query("insert into customer_gallery(`title`, `imgurl`, `desc`, `usermail`) values(?,?,?,?)",
+    [title, imgurl, desc, usermail],
+    (err, result, fields) => {
+        res.send("등록되었습니다.");
+        console.log(err);
+    })
+})
+
+// gallery get 요청
+app.get("/gallery", async (req, res)=> {
+    connection.query("select * from customer_gallery",
+    (err, result, fields)=> {
+        res.send(result)
+    })
 })
 
 // 서버실행
